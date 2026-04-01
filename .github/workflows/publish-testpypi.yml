@@ -1,22 +1,19 @@
-name: Publish to PyPI
+name: Publish to TestPyPI
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 on:
-  release:
-    types:
-      - published
   workflow_dispatch:
 
 jobs:
-  publish:
+  publish-testpypi:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
 
     environment:
-      name: pypi
+      name: testpypi
 
     steps:
       - name: Checkout
@@ -33,5 +30,7 @@ jobs:
       - name: Build package
         run: uv build
 
-      - name: Publish to PyPI
+      - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/

@@ -12,7 +12,7 @@ Method-aware decorator factories for Python functions and methods, with support 
 ## Installation
 
 ```bash
-pip install artdeco
+pip install py-artdeco
 ```
 
 ## Quick Start

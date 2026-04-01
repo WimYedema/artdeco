@@ -1,5 +1,5 @@
 [project]
-name = "artdeco"
+name = "py-artdeco"
 version = "0.1.0"
 description = "Method-aware sync/async decorator factories for Python."
 readme = "README.md"
