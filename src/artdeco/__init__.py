@@ -7,7 +7,11 @@ of internal helpers used to make decorators that:
 - Validate that a sync decorator is not applied to an async function and vice versa.
 - Pass the original function invocation to the decorator implementation as the
     first positional argument "call" (a functools.partial calling the wrapped function
-    with the current call's arguments).
+    with the current call's arguments).  Because ``call`` is a plain
+    ``functools.partial``, its attributes are accessible inside the decorator:
+    ``call.func`` is the underlying wrapped function, ``call.args`` contains the
+    positional arguments of the current invocation, and ``call.keywords`` contains
+    the keyword arguments of the current invocation.
 
 Key components
 ----------------
@@ -61,11 +65,26 @@ Asynchronous decorator example:
         async def fetch(x):
                 return x * 2
         await fetch(3)  # prints and returns 6
+
+Accessing partial internals example:
+        The ``call`` parameter is a ``functools.partial``, so its underlying
+        function and the arguments of the current invocation are available:
+        @decorator()
+        def verbose(call, label: str):
+                func_name = call.func.__name__      # name of the wrapped function
+                positional = call.args              # tuple of positional args
+                keyword = call.keywords             # dict of keyword args
+                print(f"{label} calling {func_name}{positional} {keyword}")
+                return call()
+        @verbose("LOG")
+        def add(a, b):
+                return a + b
+        add(1, b=2)  # prints "LOG calling add(1,) {'b': 2}" and returns 3
 """
 
 from collections.abc import Awaitable, Callable
 from functools import partial, update_wrapper, wraps
-from inspect import iscoroutinefunction
+from inspect import iscoroutinefunction, markcoroutinefunction
 from typing import Any, Concatenate, Generic, ParamSpec, TypeVar
 
 DecResultT = TypeVar("DecResultT")
@@ -142,6 +161,14 @@ class decorator:  # noqa: N801 use lowercase for decorators
     a ``functools.partial`` that calls the wrapped function with the current invocation's
     arguments.  Remaining parameters become the decorator factory's public API.
 
+    Because ``call`` is a plain ``functools.partial`` its internals are directly
+    accessible:
+
+    * ``call.func``     — the underlying wrapped function (useful for reading its
+      ``__name__``, ``__doc__``, or any other attribute).
+    * ``call.args``     — tuple of positional arguments supplied by the current call.
+    * ``call.keywords`` — dict of keyword arguments supplied by the current call.
+
     Example:
         >>> @decorator()
         ... def my_decorator(call, **options):
@@ -166,6 +193,7 @@ class decorator:  # noqa: N801 use lowercase for decorators
 
                 result = _SyncMethodAwareWrapper(wrapper)
                 update_wrapper(result, func)
+                result._func = wrapper  # update_wrapper overwrites _func via __dict__; restore it
                 return result
 
             return decorator_func
@@ -187,6 +215,10 @@ class decorator:  # noqa: N801 use lowercase for decorators
 
                 result = _AsyncMethodAwareWrapper(wrapper)
                 update_wrapper(result, func)
+                result._func = wrapper  # update_wrapper overwrites _func via __dict__; restore it
+                markcoroutinefunction(
+                    result
+                )  # iscoroutinefunction does not follow __wrapped__ in Python 3.12+
                 return result
 
             return decorator_func
